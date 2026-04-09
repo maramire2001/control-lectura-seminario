@@ -74,13 +74,13 @@ const MitoLogosApp = () => {
                         'Authorization': `Bearer ${apiKey}`
                     },
                     body: JSON.stringify({
-                        model: "llama3-70b-8192",
+                        model: "llama3-8b-8192",
                         messages: [
                             { role: "system", content: systemPrompt },
                             { role: "user", content: prompt }
                         ],
                         temperature: 0.7,
-                        max_tokens: 1500
+                        max_tokens: 800
                     })
                 }
             );
