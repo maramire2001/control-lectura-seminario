@@ -148,11 +148,29 @@ const MitoLogosApp = () => {
 
     const handleScroll = (e) => {
         const el = e.target;
-        // Agregando tolerancia para asegurar que alcance el 100% en pantallas altas
-        const pct = (el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100;
+        const maxScroll = el.scrollHeight - el.clientHeight;
+        if (maxScroll <= 10) {
+            setScrollPercentage(100);
+            setHasFinishedReading(true);
+            return;
+        }
+        const pct = (el.scrollTop / maxScroll) * 100;
         setScrollPercentage(pct);
         if (pct >= 95) setHasFinishedReading(true);
     };
+
+    // Auto-desbloqueo inteligente si el dispositivo es grande y el texto corto
+    useEffect(() => {
+        if (currentStep === 'full_reader') {
+            setTimeout(() => {
+                const el = document.getElementById('lector-scroll-box');
+                if (el && el.scrollHeight <= el.clientHeight + 15) {
+                    setScrollPercentage(100);
+                    setHasFinishedReading(true);
+                }
+            }, 800);
+        }
+    }, [currentStep]);
 
     const handleAnswer = (idx) => {
         const isCorrect = idx === modules[currentModuleIdx].ans;
@@ -289,7 +307,7 @@ const MitoLogosApp = () => {
                             </button>
                         </div>
                     </div>
-                    <div onScroll={handleScroll} className="p-8 md:p-16 max-h-[70vh] overflow-y-auto font-serif text-xl leading-relaxed text-slate-300 custom-scrollbar relative">
+                    <div id="lector-scroll-box" onScroll={handleScroll} className="p-8 md:p-16 max-h-[70vh] overflow-y-auto font-serif text-xl leading-relaxed text-slate-300 custom-scrollbar relative">
                         {fullText.map(p => (
                             <div key={p.p} className="relative group mb-12">
                                 <p className="indent-12 text-justify drop-shadow-md text-[1.2rem] leading-[1.8] text-slate-200">{p.content}</p>
