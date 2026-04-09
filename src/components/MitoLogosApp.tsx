@@ -4,7 +4,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
     BookOpen, Trophy, RotateCcw, CheckCircle2, XCircle,
     HelpCircle, MessageSquare, ChevronRight, Quote, Library,
-    Lock, Unlock, Save, Brain, Star, Moon, Orbit, UserCircle, BookMarked
+    Lock, Unlock, Save, Brain, Star, Moon, Orbit, UserCircle, BookMarked,
+    Download, Sparkles, Volume2, Loader2
 } from 'lucide-react';
 import { saveEvaluation } from '../lib/firebase';
 import Dashboard from './Dashboard';
@@ -27,6 +28,10 @@ const MitoLogosApp = () => {
     const [hasFinishedReading, setHasFinishedReading] = useState(false);
     const [scrollPercentage, setScrollPercentage] = useState(0);
     const [userLog, setUserLog] = useState<any[]>([]);
+
+    const [shuffledOptions, setShuffledOptions] = useState<string[]>([]);
+    const [correctAnswer, setCorrectAnswer] = useState("");
+
 
     // Estados para IA
     const [isAiLoading, setIsAiLoading] = useState(false);
@@ -172,20 +177,52 @@ const MitoLogosApp = () => {
         }
     }, [currentStep]);
 
-    const handleAnswer = (idx) => {
-        const isCorrect = idx === modules[currentModuleIdx].ans;
+    // Revolver respuestas dinámicamente al entrar a cada módulo
+    useEffect(() => {
+        if (modules[currentModuleIdx]) {
+            const currentMod = modules[currentModuleIdx];
+            const correctText = currentMod.opts[currentMod.ans];
+            const optionsCopy = [...currentMod.opts];
+            for (let i = optionsCopy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [optionsCopy[i], optionsCopy[j]] = [optionsCopy[j], optionsCopy[i]];
+            }
+            setShuffledOptions(optionsCopy);
+            setCorrectAnswer(correctText);
+        }
+    }, [currentModuleIdx, currentStep]);
+
+    const handleAnswer = (selectedText) => {
+        const isCorrect = selectedText === correctAnswer;
         if (isCorrect) setScore(score + 10);
 
         setUserLog([...userLog, {
             modulo: modules[currentModuleIdx].title,
             reflexion: reflectionInput,
             pregunta: modules[currentModuleIdx].q,
-            respuesta: modules[currentModuleIdx].opts[idx],
+            respuesta: selectedText,
             resultado: isCorrect ? "Correcto" : "Incorrecto"
         }]);
 
-        setShowFeedback({ isCorrect, msg: modules[currentModuleIdx].opts[modules[currentModuleIdx].ans] });
+        setShowFeedback({ isCorrect, msg: correctAnswer });
         setAiExplanation("");
+    };
+
+    const downloadExcel = () => {
+        let csv = "Módulo,Reflexión,Pregunta,Respuesta Elegida,Resultado\n";
+        userLog.forEach(row => {
+            csv += `"${row.modulo}","${row.reflexion.replace(/"/g, '""')}","${row.pregunta.replace(/"/g, '""')}","${row.respuesta.replace(/"/g, '""')}","${row.resultado}"\n`;
+        });
+        csv += `\nTOTAL XP,${score},MAX XP,${modules.length * 10}\n`;
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "Reporte_Lectura_MitoLogos.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const nextModule = () => {
@@ -391,41 +428,108 @@ const MitoLogosApp = () => {
                     )}
                     
                     {currentStep === 'module_reflect' && (
-                        <div className="space-y-8 animate-in relative z-10">
-                            <h2 className="text-2xl font-bold text-slate-100">{modules[currentModuleIdx].reflect}</h2>
-                            <textarea
-                                className="w-full h-48 p-6 rounded-3xl bg-slate-950 border border-slate-700 focus:border-indigo-500 text-xl text-slate-200 outline-none"
-                                value={reflectionInput}
-                                onChange={e => setReflectionInput(e.target.value)}
-                            />
+                        <div className="space-y-8 animate-in slide-in-from-bottom-4 relative z-10 pt-2">
+                            <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-800 pb-4">
+                                <div className="flex items-center gap-3 text-emerald-400 font-bold uppercase tracking-widest text-sm">
+                                    <div className="p-2 bg-emerald-950 rounded-lg"><MessageSquare size={18} /></div> 
+                                    Espacio de Reflexión
+                                </div>
+                                <button
+                                    onClick={getAiHint}
+                                    disabled={isAiLoading}
+                                    className="flex items-center gap-2 bg-slate-950 px-5 py-2.5 rounded-full border border-indigo-800/50 text-indigo-300 text-sm hover:bg-indigo-900/30 hover:border-indigo-500/50 transition-all disabled:opacity-50 shadow-inner"
+                                >
+                                    {isAiLoading ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} className="text-yellow-400" />}
+                                    Consultar al Oráculo
+                                </button>
+                            </div>
+
+                            {aiHint && (
+                                <div className="bg-indigo-950/40 border border-indigo-500/30 p-5 rounded-2xl animate-in slide-in-from-top-4 shadow-[0_0_20px_rgba(79,70,229,0.1)] flex gap-4 items-start">
+                                    <Moon className="text-indigo-400 flex-shrink-0 mt-1" size={20} />
+                                    <p className="text-indigo-200 font-medium text-base leading-relaxed">{aiHint}</p>
+                                </div>
+                            )}
+
+                            <h2 className="text-3xl font-bold text-slate-100 leading-tight">{modules[currentModuleIdx].reflect}</h2>
+                            
+                            <div className="relative group">
+                                <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-[2rem] opacity-20 group-hover:opacity-40 transition duration-500 blur"></div>
+                                <textarea
+                                    className="relative w-full h-56 p-8 rounded-[2rem] bg-slate-950 border border-slate-700 outline-none focus:border-indigo-500 text-xl transition-all shadow-inner text-slate-200 placeholder:text-slate-600 custom-scrollbar resize-none font-serif"
+                                    placeholder="Plasma tu razonamiento a la luz de las estrellas..."
+                                    value={reflectionInput}
+                                    onChange={e => setReflectionInput(e.target.value)}
+                                />
+                            </div>
+
                             <button
                                 disabled={reflectionInput.length < 5}
                                 onClick={() => setCurrentStep('module_quiz')}
-                                className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-bold text-xl hover:bg-emerald-500 disabled:opacity-30"
+                                className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-bold text-xl hover:bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-30 disabled:shadow-none transition-all duration-300"
                             >
-                                Validar Lógica
+                                Consolidar y Desafiar la Lógica
                             </button>
                         </div>
                     )}
 
                     {currentStep === 'module_quiz' && (
-                        <div className="space-y-8 animate-in relative z-10">
+                        <div className="space-y-8 animate-in zoom-in duration-500 relative z-10 pt-2">
                             {showFeedback ? (
                                 <div className="text-center space-y-10 py-6">
-                                    <h3 className={`text-4xl font-black ${showFeedback.isCorrect ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {showFeedback.isCorrect ? "¡Silogismo Perfecto!" : "Falla Lógica"}
-                                    </h3>
-                                    <button onClick={nextModule} disabled={isSavingDb} className="bg-slate-100 text-slate-900 px-16 py-5 rounded-full font-black text-xl hover:bg-white w-full flex justify-center items-center gap-3">
-                                        {isSavingDb ? "Sincronizando..." : (currentModuleIdx < modules.length - 1 ? "Siguiente Hito" : "Finalizar Evaluación")}
+                                    <div className="relative inline-block">
+                                        <div className={`absolute inset-0 blur-2xl opacity-50 ${showFeedback.isCorrect ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                                        {showFeedback.isCorrect 
+                                            ? <CheckCircle2 size={120} className="text-emerald-400 relative z-10 mx-auto" /> 
+                                            : <XCircle size={120} className="text-rose-400 relative z-10 mx-auto" />}
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        <h3 className={`text-5xl font-black ${showFeedback.isCorrect ? 'text-emerald-400' : 'text-rose-400'} drop-shadow-md`}>
+                                            {showFeedback.isCorrect ? "¡Silogismo Perfecto!" : "Falla en la Premisa"}
+                                        </h3>
+                                        <div className="inline-block bg-slate-950/80 px-8 py-4 rounded-2xl text-xl font-medium text-slate-300 border border-slate-700/50 shadow-inner">
+                                            Verdad establecida: <span className="text-white font-bold">{showFeedback.msg}</span>
+                                        </div>
+                                    </div>
+
+                                    {!aiExplanation ? (
+                                        <button
+                                            onClick={getDeepExplanation}
+                                            disabled={isAiLoading}
+                                            className="mx-auto flex items-center justify-center gap-3 text-indigo-400 font-bold hover:text-indigo-300 transition-colors bg-indigo-950/30 px-6 py-3 rounded-full border border-indigo-900/50 hover:bg-indigo-900/50"
+                                        >
+                                            {isAiLoading ? <Loader2 className="animate-spin" size={20} /> : <Brain size={20} />}
+                                            Requerir Explicación Profunda
+                                        </button>
+                                    ) : (
+                                        <div className="bg-slate-950 border border-indigo-500/40 p-8 rounded-3xl text-left animate-in slide-in-from-bottom-6 shadow-[0_0_30px_rgba(79,70,229,0.15)] relative overflow-hidden">
+                                            <Sparkles className="absolute top-4 right-4 text-indigo-500/20" size={80} />
+                                            <h4 className="font-bold text-indigo-400 text-lg mb-3 flex items-center gap-2">
+                                                <Brain size={18}/> Revelación del Logos:
+                                            </h4>
+                                            <p className="text-slate-300 text-lg leading-[1.8] relative z-10">{aiExplanation}</p>
+                                        </div>
+                                    )}
+
+                                    <button onClick={nextModule} disabled={isSavingDb} className="bg-slate-100 text-slate-900 px-16 py-5 rounded-full font-black text-xl hover:bg-white transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)] hover:scale-105 block w-full mt-8">
+                                        {isSavingDb ? "Sincronizando..." : (currentModuleIdx < modules.length - 1 ? "Avanzar al siguiente Hito" : "Finalizar Evaluación")}
                                     </button>
                                 </div>
                             ) : (
                                 <>
-                                    <h3 className="text-2xl font-bold text-white">{modules[currentModuleIdx].q}</h3>
+                                    <div className="flex items-center gap-3 text-blue-400 font-bold uppercase tracking-widest text-sm border-b border-slate-800 pb-4">
+                                        <div className="p-2 bg-blue-950/50 rounded-lg"><HelpCircle size={18} /></div>
+                                        Prueba de Conocimiento
+                                    </div>
+                                    <h3 className="text-3xl font-bold text-white leading-snug">{modules[currentModuleIdx].q}</h3>
                                     <div className="grid gap-4 mt-6">
-                                        {modules[currentModuleIdx].opts.map((o, i) => (
-                                            <button key={i} onClick={() => handleAnswer(i)} className="text-left p-6 rounded-2xl bg-slate-950/60 border border-slate-700/80 hover:bg-indigo-950/40 text-xl font-bold text-slate-300">
-                                                {o}
+                                        {shuffledOptions.map((o, i) => (
+                                            <button key={i} onClick={() => handleAnswer(o)} className="text-left p-6 md:p-7 rounded-[1.5rem] bg-slate-950/60 border border-slate-700/80 hover:border-indigo-500/80 hover:bg-indigo-950/40 transition-all font-bold text-xl flex items-center gap-6 group shadow-sm hover:shadow-[0_0_20px_rgba(79,70,229,0.2)]">
+                                                <span className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:border-indigo-400 group-hover:text-white transition-all shadow-inner flex-shrink-0">
+                                                    {String.fromCharCode(65 + i)}
+                                                </span>
+                                                <span className="text-slate-300 group-hover:text-indigo-100 transition-colors leading-tight">{o}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -439,28 +543,62 @@ const MitoLogosApp = () => {
             {/* PANTALLA FINAL: DASHBOARD Y RETRATO */}
             {currentStep === 'results' && (
                 <div className="space-y-10 mt-10">
-                    <div className="bg-slate-900/80 backdrop-blur-2xl rounded-[3rem] p-12 text-center space-y-10 border border-slate-700 shadow-xl">
-                        <Trophy size={100} className="text-yellow-400 mx-auto drop-shadow-md" />
-                        <h2 className="text-5xl font-black text-slate-100 mb-2">Evaluación Culminada</h2>
-                        <p className="text-2xl font-medium text-slate-400">Puntaje Personal: <span className="text-yellow-400 font-bold">{score} XP</span></p>
+                    <div className="bg-slate-900/80 backdrop-blur-2xl rounded-[3rem] p-12 text-center space-y-10 border border-slate-700 shadow-xl relative overflow-hidden">
+                        
+                        <div className="relative z-10">
+                            <div className="relative inline-block mb-6">
+                                <Trophy size={120} className="text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.5)] relative z-10 mx-auto" />
+                            </div>
+                            <h2 className="text-5xl font-black text-slate-100 mb-2">Evaluación Culminada</h2>
+                            <p className="text-2xl font-medium text-slate-400">Puntaje Personal: <span className="text-yellow-400 font-bold">{score} XP</span></p>
+                        </div>
 
-                        {!aiPortrait ? (
+                        {aiPortrait ? (
+                            <div className="relative z-10 bg-slate-950 border border-indigo-500/40 p-10 rounded-[2.5rem] text-left shadow-[0_0_40px_rgba(79,70,229,0.15)] animate-in slide-in-from-bottom-8 duration-700">
+                                <h3 className="text-3xl font-black text-indigo-300 mb-8 flex items-center gap-4 py-4 border-b border-indigo-900/50">
+                                    <div className="p-3 bg-indigo-900/50 rounded-2xl"><Orbit className="text-indigo-400" size={32} /></div>
+                                    El Dictamen del Logos
+                                </h3>
+                                <div className="text-slate-300 text-xl leading-[2] font-serif whitespace-pre-wrap px-2">
+                                    {aiPortrait}
+                                </div>
+                            </div>
+                        ) : (
                             <button
                                 onClick={generatePortrait}
                                 disabled={isAiLoading}
-                                className="w-full bg-slate-950 border border-indigo-500/40 text-white py-6 rounded-3xl font-black text-xl hover:bg-slate-900 flex justify-center items-center"
+                                className="relative z-10 w-full group overflow-hidden bg-slate-950 text-white py-8 rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-4 hover:shadow-[0_0_40px_rgba(79,70,229,0.4)] transition-all duration-300 border border-indigo-500/40"
                             >
-                                {isAiLoading ? "Evaluando mediante IA..." : "Invocar Dictamen del Logos"}
+                                <div className="absolute inset-0 bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 opacity-50 group-hover:scale-105 transition-transform duration-700"></div>
+                                <div className="relative z-10 flex items-center gap-4">
+                                    {isAiLoading ? <Loader2 className="animate-spin text-indigo-400" size={36} /> : <Sparkles className="text-yellow-400" size={36} />}
+                                    Invocar Dictamen del Logos mediante IA
+                                </div>
                             </button>
-                        ) : (
-                            <div className="bg-slate-950 border border-indigo-500 p-8 rounded-3xl text-left">
-                                <h3 className="text-2xl text-indigo-400 font-bold mb-4">El Dictamen del Logos</h3>
-                                <p className="text-slate-300">{aiPortrait}</p>
-                            </div>
                         )}
                     </div>
                     
-                    {/* Render Dashboard Componente Automáticamente visible para la clase */}
+                    {/* Panel de Extraer Registro Excel */}
+                    <div className="relative z-10 bg-slate-950/60 p-10 rounded-[2.5rem] space-y-8 border border-slate-700 shadow-xl">
+                        <div className="p-8 bg-slate-900/80 rounded-3xl border border-indigo-500/20 text-left space-y-6 shadow-inner">
+                            <h4 className="font-black text-2xl flex items-center gap-3 text-indigo-300 border-b border-slate-700 pb-4">
+                                <Save size={28} /> Protocolo de Registro:
+                            </h4>
+                            <ol className="list-decimal list-outside ml-6 text-xl text-slate-400 space-y-4 leading-relaxed font-medium">
+                                <li>Tus respuestas se han guardado automáticamente en la base de datos (Leaderboard inferior).</li>
+                                <li>Haz clic en el botón <span className="text-emerald-400 font-bold">"Descargar Registro CSV"</span> para obtener una copia completa local para tu profesor.</li>
+                            </ol>
+                        </div>
+
+                        <button
+                            onClick={downloadExcel}
+                            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-7 rounded-[2rem] font-black text-2xl flex items-center justify-center gap-4 hover:from-emerald-500 hover:to-teal-500 shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all transform hover:scale-[1.01]"
+                        >
+                            <Download size={32} className="animate-bounce" /> Descargar Registro CSV Completo
+                        </button>
+                    </div>
+
+                    {/* Base de Datos en Vivo */}
                     <Dashboard />
                 </div>
             )}
