@@ -5,7 +5,7 @@ import { Trophy, Clock, Search, RefreshCw } from 'lucide-react';
 import { getLeaderboard } from '../lib/firebase';
 
 const Dashboard = () => {
-    const [evaluations, setEvaluations] = useState([]);
+    const [evaluations, setEvaluations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchLeaderboard = async () => {

@@ -22,11 +22,11 @@ const MitoLogosApp = () => {
 
     const [score, setScore] = useState(0);
     const [currentModuleIdx, setCurrentModuleIdx] = useState(0);
-    const [showFeedback, setShowFeedback] = useState(null);
+    const [showFeedback, setShowFeedback] = useState<any>(null);
     const [reflectionInput, setReflectionInput] = useState("");
     const [hasFinishedReading, setHasFinishedReading] = useState(false);
     const [scrollPercentage, setScrollPercentage] = useState(0);
-    const [userLog, setUserLog] = useState([]);
+    const [userLog, setUserLog] = useState<any[]>([]);
 
     // Estados para IA
     const [isAiLoading, setIsAiLoading] = useState(false);
