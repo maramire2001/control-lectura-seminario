@@ -42,14 +42,14 @@ const LogosGallery: React.FC = () => {
     p5.noFill();
 
     points.forEach((p, i) => {
-      let force = p5Types.Vector.sub(mouse, p);
+      let force = p5.createVector(mouse.x - p.x, mouse.y - p.y);
       let dist = force.mag();
 
       if (dist < 300) {
         force.setMag(0.15);
         p.add(force);
       } else {
-        p.add(p5Types.Vector.random2D().mult(0.5));
+        p.add(p5.createVector(p5.random(-1, 1), p5.random(-1, 1)).setMag(0.5));
       }
 
       // Evita salir del lienzo reseteando la posición si sale

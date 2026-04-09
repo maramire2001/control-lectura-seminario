@@ -37,6 +37,9 @@ const MitoLogosApp = () => {
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [aiHint, setAiHint] = useState("");
     const [aiReflectionAnalysis, setAiReflectionAnalysis] = useState("");
+    const [reflectChat, setReflectChat] = useState<{role: string, content: string}[]>([]);
+    const [turnCount, setTurnCount] = useState(0);
+
     const [aiExplanation, setAiExplanation] = useState("");
     const [aiPortrait, setAiPortrait] = useState("");
     const [isSpeaking, setIsSpeaking] = useState(false);
@@ -45,7 +48,7 @@ const MitoLogosApp = () => {
 
     // --- Utilidades de IA y API ---
 
-    const fetchWithRetry = async (url, options, retries = 5, backoff = 1000) => {
+    const fetchWithRetry = async (url, options, retries = 1, backoff = 500) => {
         try {
             const response = await fetch(url, options);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -124,10 +127,28 @@ const MitoLogosApp = () => {
     };
 
     const evaluateReflection = async () => {
+        setIsAiLoading(true);
         const current = modules[currentModuleIdx];
-        const prompt = `El alumno leyó: "${current.extract}".\nSe le preguntó: "${current.reflect}".\nSu reflexión fue: "${reflectionInput}".\nHaz un análisis socrático súper breve (2 oraciones máximo) de su reflexión. Reconoce algo valioso que dijo y rétalo internamente. Usa un tono místico.`;
-        const response = await callGroq(prompt, "Eres un oráculo sabio y misterioso, evalúas el crecimiento lógico de un alumno.");
-        setAiReflectionAnalysis(response || "El Oráculo asiente silenciosamente ante tu sabiduría.");
+        
+        let newChat = [...reflectChat, { role: 'user', content: reflectionInput }];
+        setReflectChat(newChat);
+        setReflectionInput("");
+        setTurnCount(turnCount + 1);
+
+        let systemP = "";
+        let prompt = "";
+        
+        if (turnCount === 0) {
+            systemP = "Eres un oráculo sabio y misterioso. El alumno examina el tránsito del mito al logos.";
+            prompt = `El texto dice: "${current.extract}".\nSu reflexión detonadora: "${current.reflect}".\nEl alumno responde: "${reflectionInput}".\nHaz un comentario de máximo 2 oraciones validando algo de su respuesta y lánzale una NUEVA PREGUNTA mayéutica.`;
+        } else {
+            systemP = "Eres un oráculo concluyendo una sesión socrática profunda.";
+            prompt = `El alumno respondió a tu interpelación mayéutica así: "${reflectionInput}".\nHaz un cierre glorioso y alentador de máximo 2 oraciones sin hacer más preguntas. Celebra la ascensión al Logos.`;
+        }
+        
+        const response = await callGroq(prompt, systemP);
+        setReflectChat([...newChat, { role: 'ai', content: response || "La inmensidad del cosmos valida tu discernimiento." }]);
+        setIsAiLoading(false);
     };
 
     const getDeepExplanation = async () => {
@@ -206,7 +227,7 @@ const MitoLogosApp = () => {
 
         setUserLog([...userLog, {
             modulo: modules[currentModuleIdx].title,
-            reflexion: reflectionInput,
+            reflexion: reflectChat.filter(c => c.role === 'user').map(c => c.content).join(" | "),
             pregunta: modules[currentModuleIdx].q,
             respuesta: selectedText,
             resultado: isCorrect ? "Correcto" : "Incorrecto"
@@ -236,6 +257,8 @@ const MitoLogosApp = () => {
     const nextModule = () => {
         setShowFeedback(null);
         setReflectionInput("");
+        setReflectChat([]);
+        setTurnCount(0);
         setAiHint("");
         setAiReflectionAnalysis("");
         setAiExplanation("");
@@ -441,14 +464,14 @@ const MitoLogosApp = () => {
                             <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-800 pb-4">
                                 <div className="flex items-center gap-3 text-emerald-400 font-bold uppercase tracking-widest text-sm">
                                     <div className="p-2 bg-emerald-950 rounded-lg"><MessageSquare size={18} /></div> 
-                                    Espacio de Reflexión
+                                    Diálogo Mayéutico
                                 </div>
                                 <button
                                     onClick={getAiHint}
-                                    disabled={isAiLoading}
+                                    disabled={isAiLoading || turnCount >= 2}
                                     className="flex items-center gap-2 bg-slate-950 px-5 py-2.5 rounded-full border border-indigo-800/50 text-indigo-300 text-sm hover:bg-indigo-900/30 hover:border-indigo-500/50 transition-all disabled:opacity-50 shadow-inner"
                                 >
-                                    {isAiLoading ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} className="text-yellow-400" />}
+                                    {isAiLoading && turnCount < 2 ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} className="text-yellow-400" />}
                                     Consultar al Oráculo
                                 </button>
                             </div>
@@ -460,41 +483,48 @@ const MitoLogosApp = () => {
                                 </div>
                             )}
 
-                            <h2 className="text-3xl font-bold text-slate-100 leading-tight">{modules[currentModuleIdx].reflect}</h2>
-                            
-                            <div className="relative group">
-                                <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-[2rem] opacity-20 group-hover:opacity-40 transition duration-500 blur"></div>
-                                <textarea
-                                    className="relative w-full h-56 p-8 rounded-[2rem] bg-slate-950 border border-slate-700 outline-none focus:border-indigo-500 text-xl transition-all shadow-inner text-slate-200 placeholder:text-slate-600 custom-scrollbar resize-none font-serif"
-                                    placeholder="Plasma tu razonamiento a la luz de las estrellas..."
-                                    value={reflectionInput}
-                                    onChange={e => setReflectionInput(e.target.value)}
-                                />
-                            </div>
+                            <div className="space-y-6 max-h-[50vh] overflow-y-auto px-2 custom-scrollbar pb-6">
+                                <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl text-left shadow-inner">
+                                    <div className="text-emerald-400 font-bold text-sm mb-2 flex items-center gap-2"><Brain size={16}/> El Oráculo Pregunta:</div>
+                                    <h2 className="text-2xl font-bold text-slate-100 leading-snug">{modules[currentModuleIdx].reflect}</h2>
+                                </div>
 
-                            {!aiReflectionAnalysis ? (
-                                <button
-                                    disabled={reflectionInput.length < 5 || isAiLoading}
-                                    onClick={evaluateReflection}
-                                    className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-bold text-xl hover:bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-30 disabled:shadow-none transition-all duration-300"
-                                >
-                                    {isAiLoading ? "Analizando tu conocimiento..." : "Consolidar y Validar con el Oráculo"}
-                                </button>
-                            ) : (
-                                <div className="bg-emerald-950/40 border border-emerald-500/30 p-8 rounded-3xl animate-in slide-in-from-bottom-4 shadow-inner relative overflow-hidden mt-6">
-                                    <Sparkles className="absolute top-4 right-4 text-emerald-500/20" size={80} />
-                                    <h4 className="font-bold text-emerald-400 text-lg mb-3 flex items-center gap-2">
-                                        <Brain size={18}/> El Análisis del Oráculo:
-                                    </h4>
-                                    <p className="text-slate-300 text-lg leading-[1.8] relative z-10">{aiReflectionAnalysis}</p>
-                                    
+                                {reflectChat.map((msg, idx) => (
+                                    <div key={idx} className={`p-6 rounded-3xl text-left shadow-md ${msg.role === 'ai' ? 'bg-indigo-950/30 border border-indigo-500/30 mr-8' : 'bg-slate-800 border border-slate-700 ml-8'}`}>
+                                        <div className={`font-bold text-sm mb-2 flex items-center gap-2 ${msg.role === 'ai' ? 'text-indigo-400' : 'text-slate-400'}`}>
+                                            {msg.role === 'ai' ? <><Sparkles size={16}/> El Oráculo:</> : <><UserCircle size={16}/> Tu Reflexión:</>}
+                                        </div>
+                                        <p className="text-slate-200 text-lg leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {turnCount < 2 ? (
+                                <div className="space-y-4 pt-4 border-t border-slate-800">
+                                    <div className="relative group">
+                                        <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-[2rem] opacity-20 group-hover:opacity-40 transition duration-500 blur"></div>
+                                        <textarea
+                                            className="relative w-full h-40 p-6 rounded-[2rem] bg-slate-950 border border-slate-700 outline-none focus:border-indigo-500 text-xl transition-all shadow-inner text-slate-200 placeholder:text-slate-600 custom-scrollbar resize-none font-serif"
+                                            placeholder={turnCount === 0 ? "Plasma tu primer razonamiento..." : "Responde al nuevo cuestionamiento..."}
+                                            value={reflectionInput}
+                                            onChange={e => setReflectionInput(e.target.value)}
+                                        />
+                                    </div>
                                     <button
-                                        onClick={() => setCurrentStep('module_quiz')}
-                                        className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold text-xl hover:bg-indigo-500 mt-8 shadow-[0_0_20px_rgba(79,70,229,0.3)] transition-all duration-300 flex items-center justify-center gap-3"
+                                        disabled={reflectionInput.length < 5 || isAiLoading}
+                                        onClick={evaluateReflection}
+                                        className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-bold text-xl hover:bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-30 disabled:shadow-none transition-all duration-300"
                                     >
-                                        Enfrentar la Prueba Lógica <ChevronRight />
+                                        {isAiLoading ? "Conectando con el cosmos..." : "Enviar Respuesta al Oráculo"}
                                     </button>
                                 </div>
+                            ) : (
+                                <button
+                                    onClick={() => setCurrentStep('module_quiz')}
+                                    className="w-full bg-indigo-600 text-white py-6 rounded-2xl font-black text-2xl hover:bg-indigo-500 mt-8 shadow-[0_0_30px_rgba(79,70,229,0.3)] transition-all duration-300 flex items-center justify-center gap-4"
+                                >
+                                    Enfrentar la Prueba Lógica <ChevronRight size={28}/>
+                                </button>
                             )}
                         </div>
                     )}
