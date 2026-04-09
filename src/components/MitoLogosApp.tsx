@@ -36,6 +36,7 @@ const MitoLogosApp = () => {
     // Estados para IA
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [aiHint, setAiHint] = useState("");
+    const [aiReflectionAnalysis, setAiReflectionAnalysis] = useState("");
     const [aiExplanation, setAiExplanation] = useState("");
     const [aiPortrait, setAiPortrait] = useState("");
     const [isSpeaking, setIsSpeaking] = useState(false);
@@ -120,6 +121,13 @@ const MitoLogosApp = () => {
         const prompt = `Texto: "${current.extract}". Pregunta de reflexión: "${current.reflect}". Dame una pista breve (máximo 2 frases) para empezar mi reflexión filosófica sin darme la respuesta completa.`;
         const response = await callGroq(prompt, "Eres un tutor de filosofía socrático que ayuda a los alumnos a pensar profundamente.");
         setAiHint(response);
+    };
+
+    const evaluateReflection = async () => {
+        const current = modules[currentModuleIdx];
+        const prompt = `El alumno leyó: "${current.extract}".\nSe le preguntó: "${current.reflect}".\nSu reflexión fue: "${reflectionInput}".\nHaz un análisis socrático súper breve (2 oraciones máximo) de su reflexión. Reconoce algo valioso que dijo y rétalo internamente. Usa un tono místico.`;
+        const response = await callGroq(prompt, "Eres un oráculo sabio y misterioso, evalúas el crecimiento lógico de un alumno.");
+        setAiReflectionAnalysis(response || "El Oráculo asiente silenciosamente ante tu sabiduría.");
     };
 
     const getDeepExplanation = async () => {
@@ -229,6 +237,7 @@ const MitoLogosApp = () => {
         setShowFeedback(null);
         setReflectionInput("");
         setAiHint("");
+        setAiReflectionAnalysis("");
         setAiExplanation("");
         if (currentModuleIdx < modules.length - 1) {
             setCurrentModuleIdx(currentModuleIdx + 1);
@@ -463,13 +472,30 @@ const MitoLogosApp = () => {
                                 />
                             </div>
 
-                            <button
-                                disabled={reflectionInput.length < 5}
-                                onClick={() => setCurrentStep('module_quiz')}
-                                className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-bold text-xl hover:bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-30 disabled:shadow-none transition-all duration-300"
-                            >
-                                Consolidar y Desafiar la Lógica
-                            </button>
+                            {!aiReflectionAnalysis ? (
+                                <button
+                                    disabled={reflectionInput.length < 5 || isAiLoading}
+                                    onClick={evaluateReflection}
+                                    className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-bold text-xl hover:bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-30 disabled:shadow-none transition-all duration-300"
+                                >
+                                    {isAiLoading ? "Analizando tu conocimiento..." : "Consolidar y Validar con el Oráculo"}
+                                </button>
+                            ) : (
+                                <div className="bg-emerald-950/40 border border-emerald-500/30 p-8 rounded-3xl animate-in slide-in-from-bottom-4 shadow-inner relative overflow-hidden mt-6">
+                                    <Sparkles className="absolute top-4 right-4 text-emerald-500/20" size={80} />
+                                    <h4 className="font-bold text-emerald-400 text-lg mb-3 flex items-center gap-2">
+                                        <Brain size={18}/> El Análisis del Oráculo:
+                                    </h4>
+                                    <p className="text-slate-300 text-lg leading-[1.8] relative z-10">{aiReflectionAnalysis}</p>
+                                    
+                                    <button
+                                        onClick={() => setCurrentStep('module_quiz')}
+                                        className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold text-xl hover:bg-indigo-500 mt-8 shadow-[0_0_20px_rgba(79,70,229,0.3)] transition-all duration-300 flex items-center justify-center gap-3"
+                                    >
+                                        Enfrentar la Prueba Lógica <ChevronRight />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
