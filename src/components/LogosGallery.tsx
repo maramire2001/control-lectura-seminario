@@ -8,7 +8,7 @@ const Sketch = dynamic(() => import('react-p5').then(mod => mod.default), {
   ssr: false,
 });
 
-import p5Types from 'p5';
+import type p5Types from 'p5';
 
 const LogosGallery: React.FC = () => {
   const [mounted, setMounted] = useState(false);
